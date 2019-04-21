@@ -162,10 +162,17 @@ FMI *alloc_FMI(uchar *bwt, IndexType bwtlen, int alen) {
 
 
 
-FMI *read_fmi(FILE *fp) {
-  FMI *f = read_fmi_common(sizeof(ushort),fp);
-  f->startLcode = (int *)malloc((f->alen+1)*sizeof(int));
-  fread(f->startLcode,sizeof(int),f->alen+1,fp);
+FMI *read_fmi(void *fp, int use_mmap) {
+  size_t asize;
+  FMI *f = read_fmi_common(sizeof(ushort),fp,use_mmap,&asize);
+  if (use_mmap) {
+    char* data = (char*) fp + asize;
+    f->startLcode = (int*)data;
+  } else {
+    fp = (FILE*) fp;
+    f->startLcode = (int *)malloc((f->alen+1)*sizeof(int));
+    fread(f->startLcode,sizeof(int),f->alen+1,fp);
+  }
   fmi_fill_codes(f->alen,f->startLcode);
   return f;
 }

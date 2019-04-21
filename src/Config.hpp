@@ -47,6 +47,7 @@ class Config {
 		bool use_Evalue = false; // can only be used in Greedy mode
 		double min_Evalue = 0.01; // can only be used in Greedy mode
 		double db_length;
+    bool use_mmap = false;
 
 		SegParameters * blast_seg_params;
 

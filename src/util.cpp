@@ -2,6 +2,13 @@
  * Kaiju is licensed under the GPLv3, see the file LICENSE. */
 
 #include "util.hpp"
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 
 extern "C" {
 #include "./bwt/bwt.h"
@@ -243,10 +250,22 @@ uint64_t lca_from_ids(Config * config, std::unordered_map<uint64_t,unsigned int>
 void readFMI(std::string fmi_filename, Config * config) {
 
 	if(config->verbose) std::cerr << " Reading index from file " << fmi_filename << std::endl;
-	FILE * fp = fopen(fmi_filename.c_str(),"r");
-	if(!fp) { error("Could not open file " + fmi_filename); exit(EXIT_FAILURE); }
-	BWT * b = readIndexes(fp);
-	fclose(fp);
+  BWT * b;
+  if (config->use_mmap) {
+    struct stat sb;
+    int fd = open(fmi_filename.c_str(), O_RDONLY);
+    if (fd == -1) { error("Could not open file " + fmi_filename); exit(EXIT_FAILURE); }
+    if (fstat(fd, &sb) == -1) { error("Could not obtain file size for " + fmi_filename); exit(EXIT_FAILURE); }
+    size_t fmi_length = sb.st_size;
+    void* data = mmap(NULL, fmi_length, PROT_READ, MAP_PRIVATE | MAP_POPULATE, fd, 0);
+    b = readIndexes(data, 1);
+    close(fd);
+  } else {
+    FILE * fp = fopen(fmi_filename.c_str(),"r");
+    if(!fp) { error("Could not open file " + fmi_filename); exit(EXIT_FAILURE); }
+    b = readIndexes(fp, 0);
+    fclose(fp);
+  }
 	if(config->debug) fprintf(stderr,"BWT of length %ld has been read with %d sequences, alphabet=%s\n", b->len, b->nseq, b->alphabet);
 	config->bwt = b;
 	config->fmi = b->f;

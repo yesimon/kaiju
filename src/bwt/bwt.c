@@ -48,26 +48,58 @@ void write_BWT_header(BWT *b, FILE *bwtfile) {
 /*
 	 Read BWT from file (made by mkbwt) and resturn in BWT struct
 	 */
-static BWT *read_BWT_header(FILE *bwtfile) {
+static BWT *read_BWT_header(FILE *bwtfile, int map, size_t* offset) {
 	BWT *b=(BWT *)malloc(sizeof(BWT));
 
-	fread(&(b->len),sizeof(IndexType),1,bwtfile);
-	fread(&(b->nseq),sizeof(int),1,bwtfile);
-	fread(&(b->alen),sizeof(int),1,bwtfile);
-	b->alphabet=(char *)calloc(sizeof(char),b->alen+1);
-	fread(b->alphabet,sizeof(char),b->alen,bwtfile);
-
+  if (!map) {
+    fread(&(b->len),sizeof(IndexType),1,bwtfile);
+    fread(&(b->nseq),sizeof(int),1,bwtfile);
+    fread(&(b->alen),sizeof(int),1,bwtfile);
+    b->alphabet=(char *)calloc(sizeof(char),b->alen+1);
+    fread(b->alphabet,sizeof(char),b->alen,bwtfile);
+  } else {
+    char* data = (char*)bwtfile;
+    memcpy(&(b->len), data, sizeof(IndexType));
+    data += sizeof(IndexType);
+    memcpy(&(b->nseq), data, sizeof(int));
+    data += sizeof(int);
+    memcpy(&(b->alen), data, sizeof(int));
+    data += sizeof(int);
+    b->alphabet=(char *)calloc(sizeof(char),b->alen+1);
+    memcpy(b->alphabet, data, b->alen);
+    (*offset) = sizeof(int) * 2 + sizeof(IndexType) + b->alen;
+  }
 	return b;
 }
+
+
+/* static BWT *read_BWT_header(char *bwtfile) { */
+/* 	BWT *b=(BWT *)malloc(sizeof(BWT)); */
+
+/* 	fread(&(b->len),sizeof(IndexType),1,bwtfile); */
+/* 	fread(&(b->nseq),sizeof(int),1,bwtfile); */
+/* 	fread(&(b->alen),sizeof(int),1,bwtfile); */
+/* 	b->alphabet=(char *)calloc(sizeof(char),b->alen+1); */
+/* 	fread(b->alphabet,sizeof(char),b->alen,bwtfile); */
+
+/* 	return b; */
+/* } */
 
 
 /*
 	 Read BWT from file (made by mkbwt) and return in BWT struct
 	 */
-BWT *read_BWT(FILE *bwtfile) {
-	BWT *b=read_BWT_header(bwtfile);
-	b->bwt = (uchar *)malloc(b->len*sizeof(uchar));
-	fread(b->bwt,sizeof(uchar),b->len,bwtfile);
+BWT *read_BWT(FILE *bwtfile, int use_mmap) {
+  size_t offset;
+	BWT *b=read_BWT_header(bwtfile, use_mmap, &offset);
+  if (use_mmap) {
+    char* data = (char*) bwtfile;
+    size_t header_size = sizeof(IndexType) + sizeof(int) + sizeof(int) + b->alen;
+    b->bwt = (uchar*)(data + header_size);
+  } else {
+    b->bwt = (uchar *)malloc(b->len*sizeof(uchar));
+    fread(b->bwt,sizeof(uchar),b->len,bwtfile);
+  }
 	return b;
 }
 
@@ -75,15 +107,29 @@ BWT *read_BWT(FILE *bwtfile) {
 /*
 	 Read indexes from one file (made by mkfmi) and resturn in BWT struct
 	 */
-BWT *readIndexes(FILE *fp) {
-	BWT *b=read_BWT_header(fp);
+BWT *readIndexes(void *fp, int use_mmap) {
+  char* data;
+  if (use_mmap) {
+    data = (char*) fp;
+  }
+  size_t offset;
+	BWT *b=read_BWT_header(fp, use_mmap, &offset);
 
 	b->bwt=NULL;
-
-	b->s = read_suffixArray_header(fp);
-	read_suffixArray_body(b->s, fp);
-	b->f = read_fmi(fp);
-
+  size_t header_size;
+  size_t body_size;
+  if (use_mmap) {
+    data += offset;
+    b->s = read_suffixArray_header(data, use_mmap, &header_size);
+    data += header_size;
+    read_suffixArray_body(b->s, data, use_mmap, &body_size);
+    data += body_size;
+    b->f = read_fmi(data, 1);
+  } else {
+    b->s = read_suffixArray_header(fp, 0, &header_size);
+    read_suffixArray_body(b->s, fp, 0, &body_size);
+    b->f = read_fmi(fp, 0);
+  }
 	return b;
 }
 
@@ -378,6 +424,3 @@ SI *greedyExact(FMI *f, char *str, int len, int L, int jump) {
 
 	return first;
 }
-
-
-

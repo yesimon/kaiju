@@ -37,8 +37,8 @@ typedef struct _SI_ {
 
 /* FUNCTION PROTOTYPES BEGIN  ( by funcprototypes.pl ) */
 void write_BWT_header(BWT *b, FILE *bwtfile);
-BWT *read_BWT(FILE *bwtfile);
-BWT *readIndexes(FILE *fp);
+BWT *read_BWT(FILE *bwtfile, int use_mmap);
+BWT *readIndexes(void *fp, int use_mmap);
 void get_suffix(FMI *fmi, suffixArray *s, IndexType i, int *iseq, IndexType *pos);
 uchar *retrieve_seq(int snum, BWT *b);
 IndexType InitialSI(FMI *f, uchar ct, IndexType *si);

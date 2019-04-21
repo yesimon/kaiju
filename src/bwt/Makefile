@@ -1,6 +1,6 @@
 CC = gcc
-#CFLAGS  = -g
-CFLAGS = -O3 -g -Wno-unused-result
+CFLAGS  = -g
+# CFLAGS = -O3 -g -Wno-unused-result
 LDLIBS = -lpthread -lm
 
 ifeq ($(uname -s), "Darwin")

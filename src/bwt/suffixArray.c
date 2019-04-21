@@ -254,10 +254,6 @@ static inline char *readString(FILE *fp) {
 }
 
 
-
-
-
-/* Write SA header */
 void write_suffixArray_header(suffixArray *s, FILE *fp) {
   int i;
   fwrite(&(s->len),sizeof(IndexType),1,fp);
@@ -269,40 +265,94 @@ void write_suffixArray_header(suffixArray *s, FILE *fp) {
   fwrite(&(s->mask),sizeof(long),1,fp);
   fwrite(&(s->check),sizeof(long),1,fp);
 
-  fwrite(&(s->nseq),sizeof(int),1,fp);
+    fwrite(&(s->nseq),sizeof(int),1,fp);
   for (i=0; i<s->nseq;++i) writeString(s->ids[i], fp);
-  fwrite(s->seqTermOrder,sizeof(int),s->nseq,fp);  
+  fwrite(s->seqTermOrder,sizeof(int),s->nseq,fp);
   fwrite(s->seqlengths,sizeof(IndexType),s->nseq,fp);
   // fwrite(&(s->maxlength),sizeof(IndexType),1,fp);
 }
 
 
+static inline char *readStringBuffer(char *data, size_t* offset) {
+  uchar ul;
+  int l;
+  char *str;
+  memcpy(&ul,data,sizeof(uchar));
+  data += sizeof(uchar);
+  l = ul;
+  str = malloc((l+1)*sizeof(char));
+  memcpy(str,data,sizeof(char) * l);
+  str[l]='\0';
+  *offset = 1 + l;
+  return str;
+}
+
 
 /* Read SA  */
-suffixArray *read_suffixArray_header(FILE *fp) {
+suffixArray *read_suffixArray_header(void *fp, int use_map, size_t* header_size) {
+  if (use_map) {
+    fp = (FILE*) fp;
+  }
+
   int i;
   suffixArray *s = (suffixArray*)malloc(sizeof(suffixArray));
+  if (use_map) {
+    char* data = (char*) fp;
+    memcpy(&(s->len), data, sizeof(IndexType));
+    data += sizeof(IndexType);
+    memcpy(&(s->ncheck), data, sizeof(IndexType));
+    data += sizeof(IndexType);
+    memcpy(&(s->chpt_exp),data,sizeof(int));
+    data += sizeof(int);
+    memcpy(&(s->nbytes),data,sizeof(int));
+    data += sizeof(int);
+    memcpy(&(s->sbits),data,sizeof(int));
+    data += sizeof(int);
+    memcpy(&(s->pbits),data,sizeof(int));
+    data += sizeof(int);
+    memcpy(&(s->mask),data,sizeof(long));
+    data += sizeof(long);
+    memcpy(&(s->check),data,sizeof(long));
+    data += sizeof(long);
 
-  fread(&(s->len),sizeof(IndexType),1,fp);
-  fread(&(s->ncheck),sizeof(IndexType),1,fp);
-  fread(&(s->chpt_exp),sizeof(int),1,fp);
-  fread(&(s->nbytes),sizeof(int),1,fp);
-  fread(&(s->sbits),sizeof(int),1,fp);
-  fread(&(s->pbits),sizeof(int),1,fp);
-  fread(&(s->mask),sizeof(long),1,fp);
-  fread(&(s->check),sizeof(long),1,fp);
+    memcpy(&(s->nseq),data,sizeof(int));
+    data += sizeof(int);
+    s->ids = (char **)malloc(s->nseq*sizeof(char*));
+    size_t soffset;
+    for (i=0; i<s->nseq;++i) {
+      s->ids[i] = readStringBuffer(data, &soffset);
+      data += soffset;
+    }
+    s->seqTermOrder = (int *)malloc(s->nseq*sizeof(int));
+    memcpy(s->seqTermOrder,data, sizeof(int) * s->nseq);
+    data += sizeof(int) * s->nseq;
+    s->seqlengths = (IndexType *)malloc(s->nseq*sizeof(IndexType));
+    memcpy(s->seqlengths,data,sizeof(IndexType) * s->nseq);
+    data += sizeof(IndexType) * s->nseq;
+    *header_size = data - (char*)fp;
+  } else {
 
-  fread(&(s->nseq),sizeof(int),1,fp);
-  s->ids = (char **)malloc(s->nseq*sizeof(char*));
-  for (i=0; i<s->nseq;++i) s->ids[i] = readString(fp);
-  s->seqTermOrder = (int *)malloc(s->nseq*sizeof(int));
-  fread(s->seqTermOrder,sizeof(int),s->nseq,fp);  
-  s->seqlengths = (IndexType *)malloc(s->nseq*sizeof(IndexType));
-  fread(s->seqlengths,sizeof(IndexType),s->nseq,fp);
+    fread(&(s->len),sizeof(IndexType),1,fp);
+    fread(&(s->ncheck),sizeof(IndexType),1,fp);
+    fread(&(s->chpt_exp),sizeof(int),1,fp);
+    fread(&(s->nbytes),sizeof(int),1,fp);
+    fread(&(s->sbits),sizeof(int),1,fp);
+    fread(&(s->pbits),sizeof(int),1,fp);
+    fread(&(s->mask),sizeof(long),1,fp);
+    fread(&(s->check),sizeof(long),1,fp);
 
-  //  s->sa = (uchar *)malloc(s->ncheck*s->nbytes*sizeof(uchar));
-  //  fread(s->sa,sizeof(uchar),s->ncheck*s->nbytes,fp);
+    fread(&(s->nseq),sizeof(int),1,fp);
+    s->ids = (char **)malloc(s->nseq*sizeof(char*));
+    for (i=0; i<s->nseq;++i) s->ids[i] = readString(fp);
+    s->seqTermOrder = (int *)malloc(s->nseq*sizeof(int));
+    fread(s->seqTermOrder,sizeof(int),s->nseq,fp);
+    s->seqlengths = (IndexType *)malloc(s->nseq*sizeof(IndexType));
+    fread(s->seqlengths,sizeof(IndexType),s->nseq,fp);
 
+    //  s->sa = (uchar *)malloc(s->ncheck*s->nbytes*sizeof(uchar));
+    //  fread(s->sa,sizeof(uchar),s->ncheck*s->nbytes,fp);
+
+  }
   s->sa = NULL;
   s->maxlength=0;
   s->hash=NULL;
@@ -315,9 +365,14 @@ suffixArray *read_suffixArray_header(FILE *fp) {
 
 
 /* Read SA  */
-void read_suffixArray_body(suffixArray *s, FILE *fp) {
-  s->sa = (uchar *)malloc(s->ncheck*s->nbytes*sizeof(uchar));
-  fread(s->sa,sizeof(uchar),s->ncheck*s->nbytes,fp);
+void read_suffixArray_body(suffixArray *s, void *fp, int use_mmap, size_t* body_size) {
+  if (use_mmap) {
+    s->sa = fp;
+    *body_size = sizeof(uchar) * s->ncheck*s->nbytes;
+  } else {
+    s->sa = (uchar *)malloc(s->ncheck*s->nbytes*sizeof(uchar));
+    fread(s->sa,sizeof(uchar),s->ncheck*s->nbytes,fp);
+  }
 }
 
 
@@ -326,4 +381,3 @@ void write_suffixArray(suffixArray *s, FILE *fp) {
   write_suffixArray_header(s,fp);
   fwrite(s->sa,sizeof(uchar),s->ncheck*s->nbytes,fp);
 }
-

@@ -187,30 +187,58 @@ static void write_fmi_common(const FMI *f, int index2_size, FILE *fp) {
 
 /* Read the FMI in file (binary)
 */
-static FMI *read_fmi_common(int index2_size, FILE *fp) {
+static FMI *read_fmi_common(int index2_size, void *fp, int use_mmap, size_t* asize) {
   int i;
   FMI *f = (FMI *)malloc(sizeof(FMI));
 
   f->bwt=NULL;
 
-  fread(&(f->alen),sizeof(int),1,fp);
-  fread(&(f->bwtlen),sizeof(IndexType),1,fp);
-  fread(&(f->N1),sizeof(int),1,fp);
-  fread(&(f->N2),sizeof(int),1,fp);
+  if (use_mmap) {
+    char* data = (char*) fp;
+    memcpy(&(f->alen),data,sizeof(int));
+    data += sizeof(int);
+    memcpy(&(f->bwtlen),data,sizeof(IndexType));
+    data += sizeof(IndexType);
+    memcpy(&(f->N1),data,sizeof(int));
+    data += sizeof(int);
+    memcpy(&(f->N2),data,sizeof(int));
+    data += sizeof(int);
 
-  f->bwt=(uchar *)malloc(f->bwtlen*sizeof(uchar));
-  fread(f->bwt,sizeof(uchar),f->bwtlen,fp);
+    f->bwt=data;
+    data += sizeof(uchar) * f->bwtlen;
 
-  f->index1 = (IndexType **)malloc(f->N1*sizeof(IndexType *));
-  for (i=0;i<f->N1;++i) {
-    f->index1[i]=(IndexType *)malloc(f->alen*sizeof(IndexType));
-    fread(f->index1[i],sizeof(IndexType),f->alen,fp);
-  }
+    f->index1 = (IndexType **)malloc(f->N1*sizeof(IndexType *));
+    for (i=0;i<f->N1;++i) {
+      f->index1[i] = (IndexType*)data;
+      data += sizeof(IndexType) * f->alen;
+    }
 
-  f->index2 = (ushort**)malloc(f->N2*sizeof(uchar*));
-  for (i=0;i<f->N2;++i) {
-    f->index2[i]=(ushort *)malloc(f->alen*index2_size);
-    fread(f->index2[i],1,f->alen*index2_size,fp);
+    f->index2 = (ushort**)malloc(f->N2*sizeof(uchar*));
+    for (i=0;i<f->N2;++i) {
+      f->index2[i] = (ushort*)data;
+      data += f->alen * index2_size;
+    }
+    *asize = data - (char*) fp;
+  } else {
+    fread(&(f->alen),sizeof(int),1,fp);
+    fread(&(f->bwtlen),sizeof(IndexType),1,fp);
+    fread(&(f->N1),sizeof(int),1,fp);
+    fread(&(f->N2),sizeof(int),1,fp);
+
+    f->bwt=(uchar *)malloc(f->bwtlen*sizeof(uchar));
+    fread(f->bwt,sizeof(uchar),f->bwtlen,fp);
+
+    f->index1 = (IndexType **)malloc(f->N1*sizeof(IndexType *));
+    for (i=0;i<f->N1;++i) {
+      f->index1[i]=(IndexType *)malloc(f->alen*sizeof(IndexType));
+      fread(f->index1[i],sizeof(IndexType),f->alen,fp);
+    }
+
+    f->index2 = (ushort**)malloc(f->N2*sizeof(uchar*));
+    for (i=0;i<f->N2;++i) {
+      f->index2[i]=(ushort *)malloc(f->alen*index2_size);
+      fread(f->index2[i],1,f->alen*index2_size,fp);
+    }
   }
 
   return f;

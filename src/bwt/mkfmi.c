@@ -43,7 +43,7 @@ int main (int argc, char **argv) {
   fp = fopen(filename,"r");
   if (!fp) error("File %s containing BWT could not be opened for reading\n",filename);
   fprintf(stderr,"Reading BWT from file %s ... ",filename);
-  b = read_BWT(fp);
+  b = read_BWT(fp, 0);
   fclose(fp);
   fprintf(stderr,"DONE\n");
   fprintf(stderr,"BWT of length %ld has been read with %d sequencs, alphabet=%s\n",
@@ -54,9 +54,10 @@ int main (int argc, char **argv) {
   fp = fopen(filename,"r");
   if (!fp) error("File %s containing SA could not be opened for reading\n",filename);
   fprintf(stderr,"Reading suffix array from file %s ... ",filename);
-  b->s = read_suffixArray_header(fp);
+  size_t unused;
+  b->s = read_suffixArray_header(fp, 0, &unused);
   /* If the whole SA is saved, don't read it! */
-  if (b->s->chpt_exp > 0) read_suffixArray_body(b->s,fp);
+  if (b->s->chpt_exp > 0) read_suffixArray_body(b->s,fp,0, &unused);
   fclose(fp);
   fprintf(stderr,"DONE\n");
 

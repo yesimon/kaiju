@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
 	// --------------------- START ------------------------------------------------------------------
 	// Read command line params
 	int c;
-	while ((c = getopt(argc, argv, "a:hdpxXvn:m:e:E:l:t:f:i:j:s:z:o:")) != -1) {
+	while ((c = getopt(argc, argv, "a:hdpxXvMn:m:e:E:l:t:f:i:j:s:z:o:")) != -1) {
 		switch (c)  {
 			case 'a': {
 									if("mem" == std::string(optarg)) config->mode = MEM;
@@ -99,6 +99,8 @@ int main(int argc, char** argv) {
 				nodes_filename = optarg; break;
 			case 'i':
 				in1_filename = optarg; break;
+      case 'M':
+        config->use_mmap = true; break;
 			case 'j': {
 									in2_filename = optarg;
 									paired = true;
@@ -434,6 +436,7 @@ void usage(char *progname) {
 	fprintf(stderr, "   -m INT        Minimum match length (default: 11)\n");
 	fprintf(stderr, "   -s INT        Minimum match score in Greedy mode (default: 65)\n");
 	fprintf(stderr, "   -E FLOAT      Minimum E-value in Greedy mode\n");
+	fprintf(stderr, "   -M            Use mmap to load database\n");
 	fprintf(stderr, "   -x            Enable SEG low complexity filter (enabled by default)\n");
 	fprintf(stderr, "   -X            Disable SEG low complexity filter\n");
 	fprintf(stderr, "   -p            Input sequences are protein sequences\n");
@@ -441,4 +444,3 @@ void usage(char *progname) {
 	//fprintf(stderr, "   -d            Enable debug output.\n");
 	exit(EXIT_FAILURE);
 }
-

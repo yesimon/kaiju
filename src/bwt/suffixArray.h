@@ -60,8 +60,8 @@ suffixArray *init_suffixArray(SEQstruct *ss, int chpt_exp);
 void write_suffixArray_checkpoints(char **sa, IndexType start, IndexType length,
 				   suffixArray *s, FILE *sa_file);
 void write_suffixArray_header(suffixArray *s, FILE *fp);
-suffixArray *read_suffixArray_header(FILE *fp);
-void read_suffixArray_body(suffixArray *s, FILE *fp);
+suffixArray *read_suffixArray_header(void *fp, int use_map, size_t* header_size);
+void read_suffixArray_body(suffixArray *s, void *fp, int use_map, size_t* body_size);
 void write_suffixArray(suffixArray *s, FILE *fp);
 /* FUNCTION PROTOTYPES END */
 
